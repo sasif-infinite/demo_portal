@@ -1,0 +1,26 @@
+services:
+  backend:
+    build: ./backend
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /apps:/apps
+      - ./backend/apps.json:/app/apps.json  # edit without rebuilding
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # reach host ngrok agent on Linux
+    networks:
+      - portal
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - portal
+
+networks:
+  portal:
+    driver: bridge
