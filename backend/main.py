@@ -56,6 +56,7 @@ def check_docker_status(app_id: str) -> str:
 
 
 def check_tunnel(tunnel_name: str) -> dict:
+    """Check tunnel status via local ngrok agent API (tunnels are defined in ngrok.yml)."""
     try:
         resp = httpx.get(f"{NGROK_AGENT}/tunnels", timeout=3)
         if resp.status_code == 200:
@@ -99,24 +100,10 @@ async def start_app(app_id: str):
             detail=f"Compose file not found: {app_def['compose_file']}"
         )
 
-    result = run_compose(app_def["compose_file"], app_def["id"], "up", "-d")
+    result = run_compose(app_def["compose_file"], app_def["id"], "up", "-d", "--force-recreate")
     print(f"[compose up] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
         raise compose_error("up", result)
-
-    tunnel_config = {
-        "name": app_def["tunnel_name"],
-        "proto": "http",
-        "addr": str(app_def["port"]),
-    }
-    if app_def.get("subdomain"):
-        tunnel_config["subdomain"] = app_def["subdomain"]
-
-    try:
-        resp = httpx.post(f"{NGROK_AGENT}/tunnels", json=tunnel_config, timeout=10)
-        print(f"[ngrok start] {resp.status_code} {resp.text[:200]}")
-    except Exception as e:
-        print(f"[ngrok start] failed: {e}")
 
     return build_response(app_def)
 
@@ -125,13 +112,7 @@ async def start_app(app_id: str):
 async def stop_app(app_id: str):
     app_def = get_app_def(app_id)
 
-    try:
-        resp = httpx.delete(f"{NGROK_AGENT}/tunnels/{app_def['tunnel_name']}", timeout=5)
-        print(f"[ngrok stop] {resp.status_code}")
-    except Exception as e:
-        print(f"[ngrok stop] failed: {e}")
-
-    result = run_compose(app_def["compose_file"], app_def["id"], "down")
+    result = run_compose(app_def["compose_file"], app_def["id"], "down", "--remove-orphans")
     print(f"[compose down] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
         raise compose_error("down", result)
@@ -141,20 +122,11 @@ async def stop_app(app_id: str):
 
 @app.get("/debug")
 async def debug():
-    """Check that docker CLI and compose plugin are reachable from inside the container."""
+    """Check docker CLI and compose availability from inside the container."""
     docker_ver = subprocess.run(["docker", "version"], capture_output=True, text=True)
     compose_ver = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
-    socket_ok = Path("/var/run/docker.sock").exists()
     return {
-        "socket_exists": socket_ok,
-        "docker": {
-            "exit": docker_ver.returncode,
-            "stdout": docker_ver.stdout.strip(),
-            "stderr": docker_ver.stderr.strip(),
-        },
-        "compose": {
-            "exit": compose_ver.returncode,
-            "stdout": compose_ver.stdout.strip(),
-            "stderr": compose_ver.stderr.strip(),
-        },
+        "socket_exists": Path("/var/run/docker.sock").exists(),
+        "docker": {"exit": docker_ver.returncode, "stdout": docker_ver.stdout.strip(), "stderr": docker_ver.stderr.strip()},
+        "compose": {"exit": compose_ver.returncode, "stdout": compose_ver.stdout.strip(), "stderr": compose_ver.stderr.strip()},
     }
