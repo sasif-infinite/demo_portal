@@ -3,7 +3,7 @@
     "name": "Ticket Genie",
     "id": "ticket-genie",
     "description": "AI powered ticket management platform",
-    "compose_file": "/apps/ticket-genie/docker-compose.yml",
+    "compose_file": "/root/demo-portal/Ticket_Genie/docker-compose.yml",
     "port": 8080,
     "tunnel_name": "ticket-genie",
     "subdomain": "ticket-genie"

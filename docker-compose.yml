@@ -4,7 +4,7 @@ services:
     restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - /apps:/apps
+      - /root/demo-portal:/root/demo-portal
       - ./backend/apps.json:/app/apps.json  # edit without rebuilding
     extra_hosts:
       - "host.docker.internal:host-gateway"  # reach host ngrok agent on Linux

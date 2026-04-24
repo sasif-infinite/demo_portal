@@ -30,9 +30,9 @@ def get_app_def(app_id: str) -> dict:
     return app_def
 
 
-def run_compose(compose_file: str, *args: str) -> subprocess.CompletedProcess:
+def run_compose(compose_file: str, project_name: str, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["docker", "compose", "-f", compose_file, *args],
+        ["docker", "compose", "-f", compose_file, "-p", project_name, *args],
         capture_output=True,
         text=True,
     )
@@ -99,7 +99,7 @@ async def start_app(app_id: str):
             detail=f"Compose file not found: {app_def['compose_file']}"
         )
 
-    result = run_compose(app_def["compose_file"], "up", "-d")
+    result = run_compose(app_def["compose_file"], app_def["id"], "up", "-d")
     print(f"[compose up] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
         raise compose_error("up", result)
@@ -131,7 +131,7 @@ async def stop_app(app_id: str):
     except Exception as e:
         print(f"[ngrok stop] failed: {e}")
 
-    result = run_compose(app_def["compose_file"], "down")
+    result = run_compose(app_def["compose_file"], app_def["id"], "down")
     print(f"[compose down] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
         raise compose_error("down", result)
