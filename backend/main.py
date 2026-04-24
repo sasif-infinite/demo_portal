@@ -30,6 +30,19 @@ def get_app_def(app_id: str) -> dict:
     return app_def
 
 
+def run_compose(compose_file: str, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["docker", "compose", "-f", compose_file, *args],
+        capture_output=True,
+        text=True,
+    )
+
+
+def compose_error(action: str, result: subprocess.CompletedProcess) -> HTTPException:
+    output = "\n".join(filter(None, [result.stdout.strip(), result.stderr.strip()]))
+    return HTTPException(status_code=500, detail=f"docker compose {action} failed (exit {result.returncode}):\n{output}")
+
+
 def check_docker_status(app_id: str) -> str:
     try:
         client = docker_sdk.from_env()
@@ -37,7 +50,8 @@ def check_docker_status(app_id: str) -> str:
             filters={"label": f"com.docker.compose.project={app_id}"}
         )
         return "running" if containers else "stopped"
-    except Exception:
+    except Exception as e:
+        print(f"[docker status] {app_id}: {e}")
         return "unknown"
 
 
@@ -48,8 +62,8 @@ def check_tunnel(tunnel_name: str) -> dict:
             for tunnel in resp.json().get("tunnels", []):
                 if tunnel.get("name") == tunnel_name:
                     return {"active": True, "url": tunnel.get("public_url")}
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[ngrok tunnel check] {tunnel_name}: {e}")
     return {"active": False, "url": None}
 
 
@@ -62,6 +76,8 @@ def build_response(app_def: dict) -> dict:
         "tunnel_url": tunnel["url"],
     }
 
+
+# ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/apps")
 async def list_apps():
@@ -77,12 +93,16 @@ async def get_status(app_id: str):
 async def start_app(app_id: str):
     app_def = get_app_def(app_id)
 
-    result = subprocess.run(
-        ["docker", "compose", "-f", app_def["compose_file"], "up", "-d"],
-        capture_output=True, text=True,
-    )
+    if not Path(app_def["compose_file"]).exists():
+        raise HTTPException(
+            status_code=500,
+            detail=f"Compose file not found: {app_def['compose_file']}"
+        )
+
+    result = run_compose(app_def["compose_file"], "up", "-d")
+    print(f"[compose up] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=result.stderr.strip())
+        raise compose_error("up", result)
 
     tunnel_config = {
         "name": app_def["tunnel_name"],
@@ -93,9 +113,10 @@ async def start_app(app_id: str):
         tunnel_config["subdomain"] = app_def["subdomain"]
 
     try:
-        httpx.post(f"{NGROK_AGENT}/tunnels", json=tunnel_config, timeout=10)
-    except Exception:
-        pass  # docker is up; surface tunnel state via status poll
+        resp = httpx.post(f"{NGROK_AGENT}/tunnels", json=tunnel_config, timeout=10)
+        print(f"[ngrok start] {resp.status_code} {resp.text[:200]}")
+    except Exception as e:
+        print(f"[ngrok start] failed: {e}")
 
     return build_response(app_def)
 
@@ -105,15 +126,35 @@ async def stop_app(app_id: str):
     app_def = get_app_def(app_id)
 
     try:
-        httpx.delete(f"{NGROK_AGENT}/tunnels/{app_def['tunnel_name']}", timeout=5)
-    except Exception:
-        pass
+        resp = httpx.delete(f"{NGROK_AGENT}/tunnels/{app_def['tunnel_name']}", timeout=5)
+        print(f"[ngrok stop] {resp.status_code}")
+    except Exception as e:
+        print(f"[ngrok stop] failed: {e}")
 
-    result = subprocess.run(
-        ["docker", "compose", "-f", app_def["compose_file"], "down"],
-        capture_output=True, text=True,
-    )
+    result = run_compose(app_def["compose_file"], "down")
+    print(f"[compose down] exit={result.returncode} stdout={result.stdout!r} stderr={result.stderr!r}")
     if result.returncode != 0:
-        raise HTTPException(status_code=500, detail=result.stderr.strip())
+        raise compose_error("down", result)
 
     return build_response(app_def)
+
+
+@app.get("/debug")
+async def debug():
+    """Check that docker CLI and compose plugin are reachable from inside the container."""
+    docker_ver = subprocess.run(["docker", "version"], capture_output=True, text=True)
+    compose_ver = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
+    socket_ok = Path("/var/run/docker.sock").exists()
+    return {
+        "socket_exists": socket_ok,
+        "docker": {
+            "exit": docker_ver.returncode,
+            "stdout": docker_ver.stdout.strip(),
+            "stderr": docker_ver.stderr.strip(),
+        },
+        "compose": {
+            "exit": compose_ver.returncode,
+            "stdout": compose_ver.stdout.strip(),
+            "stderr": compose_ver.stderr.strip(),
+        },
+    }
