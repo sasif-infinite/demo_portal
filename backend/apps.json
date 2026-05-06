@@ -7,5 +7,14 @@
     "port": 8080,
     "tunnel_name": "ticket-genie",
     "subdomain": "ticket-genie"
+  },
+  {
+    "name": "Competitor Analysis",
+    "id": "competitor-analysis",
+    "description": "Competitive intelligence and market analysis platform",
+    "compose_file": "/root/demo-portal/Competitor-Analysis/docker-compose.yml",
+    "port": 3000,
+    "tunnel_name": "competitor-analysis",
+    "subdomain": "competitor-analysis"
   }
 ]
