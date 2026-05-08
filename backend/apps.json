@@ -22,8 +22,13 @@
     "id": "oap",
     "description": "Agent management platform",
     "type": "external",
-    "url": "http://oap.agentsmp.com/signin",
-    "tunnel_name": null,
-    "subdomain": null
+    "url": "http://oap.agentsmp.com/signin"
+  },
+  {
+    "name": "IDP",
+    "id": "idp",
+    "description": "Identity provider",
+    "type": "external",
+    "url": "https://idp.agentsmp.com"
   }
 ]

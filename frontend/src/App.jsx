@@ -80,14 +80,16 @@ function AppCard({ app, loading, error, onStart, onStop }) {
           label={isRunning ? 'Running' : 'Stopped'}
           color={isRunning ? 'green' : 'gray'}
         />
-        <Badge
-          label={app.tunnel_active ? 'Tunnel Online' : 'Tunnel Offline'}
-          color={app.tunnel_active ? 'blue' : 'red'}
-        />
+        {app.tunnel_name && (
+          <Badge
+            label={app.tunnel_active ? 'Tunnel Online' : 'Tunnel Offline'}
+            color={app.tunnel_active ? 'blue' : 'red'}
+          />
+        )}
       </div>
 
       {/* Live URL */}
-      {app.tunnel_url ? (
+      {app.tunnel_url && (
         <a
           href={app.tunnel_url}
           target="_blank"
@@ -96,8 +98,6 @@ function AppCard({ app, loading, error, onStart, onStop }) {
         >
           {app.tunnel_url}
         </a>
-      ) : (
-        <span className="text-sm text-gray-300 italic">No tunnel URL</span>
       )}
 
       {/* Error message */}
