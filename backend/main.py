@@ -68,7 +68,20 @@ def check_tunnel(tunnel_name: str) -> dict:
     return {"active": False, "url": None}
 
 
+def check_external(url: str) -> bool:
+    try:
+        resp = httpx.get(url, timeout=5, follow_redirects=True)
+        return resp.status_code < 500
+    except Exception:
+        return False
+
+
 def build_response(app_def: dict) -> dict:
+    if app_def.get("type") == "external":
+        return {
+            **app_def,
+            "online": check_external(app_def["url"]),
+        }
     tunnel = check_tunnel(app_def["tunnel_name"])
     return {
         **app_def,

@@ -17,4 +17,13 @@
     "tunnel_name": "competitor-analysis",
     "subdomain": "competitor-analysis"
   }
+  ,{
+    "name": "OAP",
+    "id": "oap",
+    "description": "Agent management platform",
+    "type": "external",
+    "url": "http://oap.agentsmp.com/signin",
+    "tunnel_name": null,
+    "subdomain": null
+  }
 ]

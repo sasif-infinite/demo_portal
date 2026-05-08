@@ -23,7 +23,47 @@ function Badge({ label, color }) {
   );
 }
 
+function ExternalAppCard({ app }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col gap-4 hover:shadow-md transition-shadow">
+      <div>
+        <h2 className="text-lg font-semibold text-gray-900 mb-2">{app.name}</h2>
+        <p className="text-sm text-gray-500 leading-relaxed">{app.description}</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Badge
+          label={app.online ? 'Online' : 'Offline'}
+          color={app.online ? 'green' : 'red'}
+        />
+      </div>
+
+      <a
+        href={app.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate"
+      >
+        {app.url}
+      </a>
+
+      <div className="mt-auto pt-2">
+        <a
+          href={app.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full text-center rounded-lg px-3 py-2 text-sm font-medium bg-gray-900 text-white hover:bg-gray-700 transition-colors"
+        >
+          Open
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function AppCard({ app, loading, error, onStart, onStop }) {
+  if (app.type === 'external') return <ExternalAppCard app={app} />;
+
   const isRunning = app.docker_status === 'running';
 
   return (
@@ -151,7 +191,8 @@ export default function App() {
     }
   }, [fetchApps]);
 
-  const runningCount = apps.filter(a => a.docker_status === 'running').length;
+  const managedApps = apps.filter(a => a.type !== 'external');
+  const runningCount = managedApps.filter(a => a.docker_status === 'running').length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -159,7 +200,7 @@ export default function App() {
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Demo Portal</h1>
           <p className="mt-1 text-sm text-gray-500">
-            {runningCount} of {apps.length} app{apps.length !== 1 ? 's' : ''} running
+            {runningCount} of {managedApps.length} app{managedApps.length !== 1 ? 's' : ''} running
             {lastChecked && (
               <span className="ml-2 text-gray-400">
                 — last checked {lastChecked.toLocaleTimeString()}
